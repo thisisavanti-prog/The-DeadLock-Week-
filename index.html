@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DeadLock.Week // System Tracker</title>
+    <style>
+        :root {
+            /* Color Anchors */
+            --mud-r: 74;  /* Pantone 448C Red: 74 */
+            --mud-g: 65;  /* Pantone 448C Green: 65 */
+            --mud-b: 42;  /* Pantone 448C Blue: 42 */
+            
+            --cobalt-r: 0;   /* Vantage Cobalt Red: 0 */
+            --cobalt-g: 229; /* Vantage Cobalt Green: 229 */
+            --cobalt-b: 255; /* Vantage Cobalt Blue: 255 */
+
+            --void-bg: #0D001A;
+            --panel-bg: rgba(13, 0, 26, 0.7);
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Courier New', Courier, monospace;
+            color: #E0E0E0;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: background 0.8s ease-out;
+            background: linear-gradient(135deg, rgb(var(--mud-r), var(--mud-g), var(--mud-b)), var(--void-bg));
+            box-sizing: border-box;
+            padding: 20px;
+        }
+
+        .system-panel {
+            background: var(--panel-bg);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            width: 100%;
+            max-width: 600px;
+            padding: 25px;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.6);
+        }
+
+        .header {
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            padding-bottom: 15px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 1.5rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: #FFF;
+        }
+
+        .header .status {
+            font-size: 0.9rem;
+            color: #00E5FF;
+        }
+
+        /* Excel/Notion Layout Grid */
+        .task-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 25px;
+        }
+
+        .task-row {
+            display: flex;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 12px 15px;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+        }
+
+        .task-row:hover {
+            background: rgba(255, 255, 255, 0.06);
+        }
+
+        .task-row.completed {
+            opacity: 0.5;
+            text-decoration: line-through;
+            border-color: rgba(0, 229, 255, 0.3);
+        }
+
+        .task-row.completed .task-text {
+            color: #00E5FF;
+        }
+
+        .checkbox-container {
+            margin-right: 15px;
+            display: flex;
+            align-items: center;
+        }
+
+        input[type="checkbox"] {
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #555;
+            border-radius: 4px;
+            background: transparent;
+            cursor: pointer;
+            position: relative;
+            outline: none;
+            transition: all 0.2s ease;
+        }
+
+        input[type="checkbox"]:checked {
+            background: #00E5FF;
+            border-color: #00E5FF;
+        }
+
+        input[type="checkbox"]:checked::after {
+            content: '✓';
+            position: absolute;
+            color: #000;
+            font-weight: bold;
+            font-size: 14px;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .task-text {
+            flex-grow: 1;
+            font-size: 0.95rem;
+            word-break: break-word;
+        }
+
+        .delete-btn {
+            background: none;
+            border: none;
+            color: #FF4444;
+            font-size: 1.2rem;
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+
+        .task-row:hover .delete-btn {
+            opacity: 1;
+        }
+
+        /* Input Form */
+        .add-task-form {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 25px;
+        }
+
+        .add-task-form input {
+            flex-grow: 1;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 12px;
+            color: #FFF;
+            font-family: inherit;
+            border-radius: 6px;
+            outline: none;
+        }
+
+        .add-task-form input:focus {
+            border-color: #00E5FF;
+        }
+
+        .add-task-form button {
+            background: #00E5FF;
+            color: #000;
+            border: none;
+            padding: 0 20px;
+            font-weight: bold;
+            font-family: inherit;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        .add-task-form button:hover {
+            opacity: 0.8;
+        }
+
+        /* Telemetry Bar */
+        .telemetry-container {
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 4px;
+            height: 6px;
+            width: 100%;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .telemetry-bar {
+            height: 100%;
+            width: 0%;
+            background: #00E5FF;
+            box-shadow: 0 0 10px #00E5FF;
+            transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="system-panel">
+        <div class="header">
+            <h1>// DeadLock.Week</h1>
+            <div class="status" id="telemetry-readout">0% ACCRETED</div>
+        </div>
+
+        <form class="add-task-form" id="task-form">
+            <input type="text" id="new-task-input" placeholder="Initialize new objective..." autocomplete="off">
+            <button type="submit">APPEND</button>
+        </form>
+
+        <div class="task-list" id="task-list">
+            <!-- Dynamic tasks inject here -->
+        </div>
+
+        <div class="telemetry-container">
+            <div class="telemetry-bar" id="telemetry-bar"></div>
+        </div>
+    </div>
+
+    <script>
+        // Default DeadLock Quest Baseline
+        const defaultTasks = [
+            { id: 1, text: "Pray 5 times a day", completed: false },
+            { id: 2, text: "No Fap", completed: false },
+            { id: 3, text: "Complete Block-1 exam syllabi", completed: false },
+            { id: 4, text: "Exercise everyday (Progressive Overload)", completed: false },
+            { id: 5, text: "Complete academic projects/assignments", completed: false }
+        ];
+
+        // Fetch from LocalStorage or load defaults
+        let tasks = JSON.parse(localStorage.getItem('deadlock_db')) || defaultTasks;
+
+        const taskListEl = document.getElementById('task-list');
+        const formEl = document.getElementById('task-form');
+        const inputEl = document.getElementById('new-task-input');
+        const readoutEl = document.getElementById('telemetry-readout');
+        const barEl = document.getElementById('telemetry-bar');
+
+        // Color Anchors for Lerp
+        const cStart = { r: 74, g: 65, b: 42 };     // Pantone 448C
+        const cEnd = { r: 0, g: 229, b: 255 };      // Vantage Cobalt Blue
+
+        function saveAndRender() {
+            localStorage.setItem('deadlock_db', JSON.stringify(tasks));
+            renderTasks();
+            updateTelemetry();
+        }
+
+        function renderTasks() {
+            taskListEl.innerHTML = '';
+            tasks.forEach(task => {
+                const row = document.createElement('div');
+                row.className = `task-row ${task.completed ? 'completed' : ''}`;
+                
+                row.innerHTML = `
+                    <div class="checkbox-container">
+                        <input type="checkbox" ${task.completed ? 'checked' : ''} onchange="toggleTask(${task.id})">
+                    </div>
+                    <div class="task-text">${task.text}</div>
+                    <button class="delete-btn" onclick="deleteTask(${task.id})">×</button>
+                `;
+                taskListEl.appendChild(row);
+            });
+        }
+
+        function toggleTask(id) {
+            tasks = tasks.map(t => t.id === id ? { ...t, completed: !t.completed } : t);
+            saveAndRender();
+        }
+
+        function deleteTask(id) {
+            tasks = tasks.filter(t => t.id !== id);
+            saveAndRender();
+        }
+
+        formEl.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const text = inputEl.value.trim();
+            if (!text) return;
+
+            tasks.push({
+                id: Date.now(),
+                text: text,
+                completed: false
+            });
+            
+            inputEl.value = '';
+            saveAndRender();
+        });
+
+        function updateTelemetry() {
+            if (tasks.length === 0) {
+                applyGradient(0);
+                return;
+            }
+
+            const completed = tasks.filter(t => t.completed).length;
+            const percentage = Math.round((completed / tasks.length) * 100);
+
+            readoutEl.innerText = `${percentage}% ACCRETED`;
+            barEl.style.width = `${percentage}%`;
+
+            applyGradient(percentage);
+        }
+
+        function applyGradient(percent) {
+            const ratio = percent / 100;
+            
+            // Linear Interpolation (Lerp) Calculation
+            const currentR = Math.round(cStart.r + (cEnd.r - cStart.r) * ratio);
+            const currentG = Math.round(cStart.g + (cEnd.g - cStart.g) * ratio);
+            const currentB = Math.round(cStart.b + (cEnd.b - cStart.b) * ratio);
+
+            // Apply to document body
+            document.body.style.background = `linear-gradient(135deg, rgb(${currentR}, ${currentG}, ${currentB}), var(--void-bg))`;
+        }
+
+    saveAndRender();
+    </script>
+</body>
+</html>
+            max-width: 600px;
+            padding: 25px;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.6);
+        }
+
+        .header {
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            padding-bottom: 15px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 1.5rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: #FFF;
+        }
+
+        .header .status {
+            font-size: 0.9rem;
+            color: #00E5FF;
+        }
+
+        /* Excel/Notion Layout Grid */
+        .task-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 25px;
+        }
+
+        .task-row {
+            display: flex;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 12px 15px;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+        }
+
+        .task-row:hover {
+            background: rgba(255, 255, 255, 0.06);
+        }
+
+        .task-row.completed {
+            opacity: 0.5;
+            text-decoration: line-through;
+            border-color: rgba(0, 229, 255, 0.3);
+        }
+
+        .task-row.completed .task-text {
+            color: #00E5FF;
+        }
+
+        .checkbox-container {
+            margin-right: 15px;
+            display: flex;
+            align-items: center;
+        }
+
+        input[type="checkbox"] {
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #555;
+            border-radius: 4px;
+            background: transparent;
+            cursor: pointer;
+            position: relative;
+            outline: none;
+            transition: all 0.2s ease;
+        }
+
+        input[type="checkbox"]:checked {
+            background: #00E5FF;
+            border-color: #00E5FF;
+        }
+
+        input[type="checkbox"]:checked::after {
+            content: '✓';
+            position: absolute;
+            color: #000;
+            font-weight: bold;
+            font-size: 14px;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .task-text {
+            flex-grow: 1;
+            font-size: 0.95rem;
+            word-break: break-word;
+        }
+
+        .delete-btn {
+            background: none;
+            border: none;
+            color: #FF4444;
+            font-size: 1.2rem;
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+
+        .task-row:hover .delete-btn {
+            opacity: 1;
+        }
+
+        /* Input Form */
+        .add-task-form {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 25px;
+        }
+
+        .add-task-form input {
+            flex-grow: 1;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 12px;
+            color: #FFF;
+            font-family: inherit;
+            border-radius: 6px;
+            outline: none;
+        }
+
+        .add-task-form input:focus {
+            border-color: #00E5FF;
+        }
+
+        .add-task-form button {
+            background: #00E5FF;
+            color: #000;
+            border: none;
+            padding: 0 20px;
+            font-weight: bold;
+            font-family: inherit;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        .add-task-form button:hover {
+            opacity: 0.8;
+        }
+
+        /* Telemetry Bar */
+        .telemetry-container {
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 4px;
+            height: 6px;
+            width: 100%;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .telemetry-bar {
+            height: 100%;
+            width: 0%;
+            background: #00E5FF;
+            box-shadow: 0 0 10px #00E5FF;
+            transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="system-panel">
+        <div class="header">
+            <h1>// DeadLock.Week</h1>
+            <div class="status" id="telemetry-readout">0% ACCRETED</div>
+        </div>
+
+        <form class="add-task-form" id="task-form">
+            <input type="text" id="new-task-input" placeholder="Initialize new objective..." autocomplete="off">
+            <button type="submit">APPEND</button>
+        </form>
+
+        <div class="task-list" id="task-list">
+            <!-- Dynamic tasks inject here -->
+        </div>
+
+        <div class="telemetry-container">
+            <div class="telemetry-bar" id="telemetry-bar"></div>
+        </div>
+    </div>
+
+    <script>
+        // Default DeadLock Quest Baseline
+        const defaultTasks = [
+            { id: 1, text: "Pray 5 times a day", completed: false },
+            { id: 2, text: "No Fap", completed: false },
+            { id: 3, text: "Complete Block-1 exam syllabi", completed: false },
+            { id: 4, text: "Exercise everyday (Progressive Overload)", completed: false },
+            { id: 5, text: "Complete academic projects/assignments", completed: false }
+        ];
+
+        // Fetch from LocalStorage or load defaults
+        let tasks = JSON.parse(localStorage.getItem('deadlock_db')) || defaultTasks;
+
+        const taskListEl = document.getElementById('task-list');
+        const formEl = document.getElementById('task-form');
+        const inputEl = document.getElementById('new-task-input');
+        const readoutEl = document.getElementById('telemetry-readout');
+        const barEl = document.getElementById('telemetry-bar');
+
+        // Color Anchors for Lerp
+        const cStart = { r: 74, g: 65, b: 42 };     // Pantone 448C
+        const cEnd = { r: 0, g: 229, b: 255 };      // Vantage Cobalt Blue
+
+        function saveAndRender() {
+            localStorage.setItem('deadlock_db', JSON.stringify(tasks));
+            renderTasks();
+            updateTelemetry();
+        }
+
+        function renderTasks() {
+            taskListEl.innerHTML = '';
+            tasks.forEach(task => {
+                const row = document.createElement('div');
+                row.className = `task-row ${task.completed ? 'completed' : ''}`;
+                
+                row.innerHTML = `
+                    <div class="checkbox-container">
+                        <input type="checkbox" ${task.completed ? 'checked' : ''} onchange="toggleTask(${task.id})">
+                    </div>
+                    <div class="task-text">${task.text}</div>
+                    <button class="delete-btn" onclick="deleteTask(${task.id})">×</button>
+                `;
+                taskListEl.appendChild(row);
+            });
+        }
+
+        function toggleTask(id) {
+            tasks = tasks.map(t => t.id === id ? { ...t, completed: !t.completed } : t);
+            saveAndRender();
+        }
+
+        function deleteTask(id) {
+            tasks = tasks.filter(t => t.id !== id);
+            saveAndRender();
+        }
+
+        formEl.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const text = inputEl.value.trim();
+            if (!text) return;
+
+            tasks.push({
+                id: Date.now(),
+                text: text,
+                completed: false
+            });
+            
+            inputEl.value = '';
+            saveAndRender();
+        });
+
+        function updateTelemetry() {
+            if (tasks.length === 0) {
+                applyGradient(0);
+                return;
+            }
+
+            const completed = tasks.filter(t => t.completed).length;
+            const percentage = Math.round((completed / tasks.length) * 100);
+
+            readoutEl.innerText = `${percentage}% ACCRETED`;
+            barEl.style.width = `${percentage}%`;
+
+            applyGradient(percentage);
+        }
+
+        function applyGradient(percent) {
+            const ratio = percent / 100;
+            
+            // Linear Interpolation (Lerp) Calculation
+            const currentR = Math.round(cStart.r + (cEnd.r - cStart.r) * ratio);
+            const currentG = Math.round(cStart.g + (cEnd.g - cStart.g) * ratio);
+            const currentB = Math.round(cStart.b + (cEnd.b - cStart.b) * ratio);
+
+            // Apply to document body
+            document.body.style.background = `linear-gradient(135deg, rgb(${currentR}, ${currentG}, ${currentB}), var(--void-bg))`;
+        }
+
+  
+    </script>    <script src="script.js"></script>
+</body>
+</html>
+
+</body>
+  </html>
+  
